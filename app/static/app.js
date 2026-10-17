@@ -49,7 +49,7 @@ async function checkModels() {
     } else if (data.status === 'mock') {
       el('runtime-status').textContent = 'Demo mode. No Ollama model will be called.';
     } else if (data.status === 'ollama_offline') {
-      el('runtime-status').textContent = 'Ollama offline. Open Ollama for Windows or run ollama serve.';
+      el('runtime-status').textContent = 'Ollama offline. Open Ollama or run ollama serve.';
     } else {
       el('runtime-status').textContent = `No models installed. Run ollama pull ${data.default_model}`;
     }
@@ -71,6 +71,7 @@ el('analyze-form').addEventListener('submit', async event => {
   }
   el('run-button').disabled = true;
   el('run-label').textContent = 'Generating contribution plan…';
+  el('copy-button').textContent = 'Copy';
   showState('loading');
   try {
     const response = await fetch('/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
