@@ -11,3 +11,5 @@ htmlcov/
 *.log
 .idea/
 .vscode/
+
+_site/

@@ -5,7 +5,7 @@
 
 Turn a GitHub issue into a contribution plan using a local AI model. Built with **Python, FastAPI, JavaScript, and Ollama**, MaintainerMate helps open-source contributors understand an issue and decide what to do next.
 
-**Free to run locally. No paid AI API, API key, or hosted account required.** You supply your computer and an installed Ollama model. GitHub hosts the source; this repository does not include a publicly hosted AI service.
+**Free to run locally. No paid AI API, API key, or hosted account required.** You supply your computer and an installed Ollama model. GitHub hosts the source. A free GitHub Pages demo can show sample responses; real AI runs locally through Ollama.
 
 ## What it does
 
@@ -20,6 +20,33 @@ It does not inspect repository code, modify files, execute tests for you, or sub
 ![MaintainerMate demo interface](docs/demo.png)
 
 The screenshot shows demo mode with a fixed example response, not live AI output.
+
+## In your browser
+
+The portfolio demo lets visitors try the interface without installing Python or Ollama. It displays one fixed, clearly labelled sample plan. It does not analyze arbitrary issues or contact your laptop.
+
+Once GitHub Pages has been enabled and the deployment workflow has succeeded, open:
+**https://graceomolola001-cmyk.github.io/maintainermate/**
+
+Click **View sample plan**, then try **Copy** or **Save .md**. For real AI responses, follow the local setup instructions below.
+
+### Enable the free portfolio demo (repository owner)
+
+1. Merge the demo changes into `main`.
+2. Open the repository's **Settings → Pages** and select **GitHub Actions** as the build and deployment source.
+3. Open **Actions → Deploy portfolio demo → Run workflow**, choose `main`, and run it. Subsequent pushes to `main` redeploy automatically.
+4. Wait for both build and deployment to succeed, then open the URL shown by the deployment. Before deployment succeeds, the address may return 404.
+
+This uses GitHub Pages for a public repository and needs no paid AI service or secret. It publishes only static demo assets, not FastAPI or Ollama. If GitHub requires approval for the `github-pages` environment, approve that deployment in the repository.
+
+To preview the same static demo locally:
+
+```powershell
+python scripts/build_demo.py
+python -m http.server 8080 --bind 127.0.0.1 --directory _site
+```
+
+Open **http://127.0.0.1:8080**. To run real AI, use the FastAPI instructions below instead.
 
 ## Requirements
 
@@ -143,7 +170,8 @@ app/
   main.py             API, validation, model prompt, Ollama client
   static/             HTML, CSS, JavaScript; no build step
 tests/                Mocked API tests and server smoke test
-.github/              CI, issue templates, pull request template
+.github/              Test CI, Pages deployment, contribution templates
+scripts/build_demo.py  Builds the sample-only portfolio site in _site/
 setup.ps1, start.ps1  Optional Windows helpers
 ```
 
@@ -155,4 +183,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines. Bu
 
 Licensed under the [MIT License](LICENSE). Ollama and model weights have their own licenses; they are not bundled with this repository.
 
-This app is designed for localhost. It has no authentication or rate limiting: do not expose the FastAPI or Ollama ports to the internet. GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.
+This app is designed for localhost. It has no authentication or rate limiting: do not expose the FastAPI or Ollama ports to the internet. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.

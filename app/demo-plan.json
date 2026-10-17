@@ -1,0 +1,5 @@
+{
+  "analysis": "1. ISSUE EXPLAINED\nA project needs clearer Windows setup documentation.\n\n2. FIRST THINGS TO CHECK\nRead CONTRIBUTING.md, current README, and issue comments.\n\n3. IMPLEMENTATION PLAN\nAdd a Windows section with PowerShell commands.\n\n4. TESTING CHECKLIST\nAsk a Windows user to try the steps from scratch.\n\n5. DRAFT PULL REQUEST DESCRIPTION\nDocument Windows installation and common pitfalls.\n\nAsk the maintainer before making large changes.",
+  "model": "DEMO ONLY (no model was used)",
+  "issue_source": "Fixed sample issue"
+}

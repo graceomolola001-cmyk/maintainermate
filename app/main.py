@@ -4,6 +4,7 @@ Run locally only: uvicorn app.main:app --host 127.0.0.1 --port 8000
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 from pathlib import Path
@@ -16,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 APP_DIR = Path(__file__).resolve().parent
+DEMO_PLAN = json.loads((APP_DIR / "demo-plan.json").read_text(encoding="utf-8"))
 DEFAULT_MODEL = "qwen3:1.7b"
 OLLAMA_URL = "http://127.0.0.1:11434"
 ISSUE_URL_RE = re.compile(r"^/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/issues/([0-9]+)/?$", re.I)
@@ -201,13 +203,7 @@ async def analyze(payload: AnalyzeRequest):
 
     if os.environ.get("MOCK_AI", "").lower() == "true":
         return AnalyzeResponse(
-            model="DEMO ONLY (no model was used)", issue_source=source,
-            analysis=("1. ISSUE EXPLAINED\nA project needs clearer Windows setup documentation.\n\n"
-                      "2. FIRST THINGS TO CHECK\nRead CONTRIBUTING.md, current README, and issue comments.\n\n"
-                      "3. IMPLEMENTATION PLAN\nAdd a Windows section with PowerShell commands.\n\n"
-                      "4. TESTING CHECKLIST\nAsk a Windows user to try the steps from scratch.\n\n"
-                      "5. DRAFT PULL REQUEST DESCRIPTION\nDocument Windows installation and common pitfalls.\n\n"
-                      "Ask the maintainer before making large changes."),
+            model=DEMO_PLAN["model"], issue_source=source, analysis=DEMO_PLAN["analysis"],
         )
 
     output = await query_ollama(issue, model)

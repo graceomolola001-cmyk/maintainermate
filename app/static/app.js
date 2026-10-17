@@ -1,6 +1,26 @@
 const el = id => document.getElementById(id);
 const EXAMPLE = 'Our open-source project README includes installation steps for Linux and macOS, but newcomers on Windows cannot complete setup. Add clear Windows 11 instructions using PowerShell, explain how to install dependencies, and include troubleshooting advice for common PATH and execution policy errors.';
+const STATIC_DEMO = document.documentElement.dataset.demo === 'true';
+const runLabel = STATIC_DEMO ? 'View sample plan' : 'Generate contribution plan';
 let mode = 'paste';
+
+if (STATIC_DEMO) {
+  el('demo-banner').classList.remove('hidden');
+  el('issue-text').value = EXAMPLE;
+  el('issue-text').readOnly = true;
+  el('url-tab').classList.add('hidden');
+  el('sample-button').textContent = 'Use the sample issue';
+  el('model-select').disabled = true;
+  el('run-label').textContent = runLabel;
+  el('result-loading').querySelector('p').textContent = 'Loading the sample contribution plan…';
+}
+
+async function loadDemoPlan() {
+  const response = await fetch('./demo-plan.json');
+  if (!response.ok) throw new Error('The sample could not load. Please refresh and try again.');
+  return response.json();
+}
+
 
 function setMode(next) {
   mode = next;
@@ -32,7 +52,9 @@ el('sample-button').addEventListener('click', () => {
 
 async function checkModels() {
   try {
-    const response = await fetch('/health');
+    const response = STATIC_DEMO
+      ? {ok: true, json: async () => ({status: 'mock', models: [], default_model: 'Sample response (no AI)'})}
+      : await fetch('/health');
     if (!response.ok) throw new Error('Health request failed');
     const data = await response.json();
     const select = el('model-select');
@@ -70,13 +92,18 @@ el('analyze-form').addEventListener('submit', async event => {
     showState('error'); return;
   }
   el('run-button').disabled = true;
-  el('run-label').textContent = 'Generating contribution plan…';
+  el('run-label').textContent = STATIC_DEMO ? 'Loading sample…' : 'Generating contribution plan…';
   el('copy-button').textContent = 'Copy';
   showState('loading');
   try {
-    const response = await fetch('/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Please check the issue and try again.');
+    let data;
+    if (STATIC_DEMO) {
+      data = await loadDemoPlan();
+    } else {
+      const response = await fetch('/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+      data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Please check the issue and try again.');
+    }
     // Model output remains literal text. Never interpolate it into HTML.
     el('result-text').textContent = data.analysis;
     el('result-meta').textContent = `${data.model} · ${data.issue_source} · Always request human review`;
@@ -86,19 +113,20 @@ el('analyze-form').addEventListener('submit', async event => {
     showState('error');
   } finally {
     el('run-button').disabled = false;
-    el('run-label').textContent = 'Generate contribution plan';
+    el('run-label').textContent = runLabel;
   }
 });
 
 el('copy-button').addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(el('result-text').textContent);
+    const attribution = STATIC_DEMO ? 'Sample response — no AI model was used.\n\n' : '';
+    await navigator.clipboard.writeText(attribution + el('result-text').textContent);
     el('copy-button').textContent = 'Copied ✓';
   } catch { el('copy-button').textContent = 'Select to copy'; }
 });
 
 el('download-button').addEventListener('click', () => {
-  const content = `# MaintainerMate contribution plan\n\n${el('result-text').textContent}\n\n---\nDraft guidance. Request human maintainer review.\n`;
+  const content = `# MaintainerMate contribution plan\n\n${el('result-meta').textContent}\n\n${el('result-text').textContent}\n\n---\nDraft guidance. Request human maintainer review.\n`;
   const file = new Blob([content], {type:'text/markdown;charset=utf-8'});
   const url = URL.createObjectURL(file);
   const anchor = document.createElement('a');
