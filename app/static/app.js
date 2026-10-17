@@ -122,8 +122,14 @@ el('analyze-form').addEventListener('submit', async event => {
       data = await loadDemoPlan();
     } else {
       const response = await fetch('/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
-      data = await response.json();
-      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Please check the issue and try again.');
+      try { data = await response.json(); } catch { data = null; }
+      if (!response.ok) {
+        const fallback = response.status === 429
+          ? 'This shared demo has reached a usage limit. Please wait a minute and try again.'
+          : 'The AI service could not complete this request. Please try again later.';
+        throw new Error(typeof data?.detail === 'string' ? data.detail : fallback);
+      }
+      if (typeof data?.analysis !== 'string') throw new Error('The AI service returned an invalid response.');
     }
     // Model output remains literal text. Never interpolate it into HTML.
     el('result-text').textContent = data.analysis;

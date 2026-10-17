@@ -1,6 +1,8 @@
-# Host MaintainerMate for visitors
+# Alternative: host the Python app on Render
 
-The public app uses **Render for FastAPI** and **Groq for AI responses**. The visitor only needs a browser. Your laptop and Ollama do not need to stay on. Local development still defaults to Ollama.
+For Netlify instead, follow [the Netlify guide](netlify.md); it does not require Render.
+
+This alternative uses **Render for FastAPI** and **Groq for AI responses**. The visitor only needs a browser. Your laptop and Ollama do not need to stay on. Local development still defaults to Ollama.
 
 The repository explicitly selects Render's **free** web-service plan. Use a Groq **free-tier** account, keep paid billing disabled, and confirm the current model/quotas in its console. Free-plan availability and signup requirements can change; stop if either service asks you to purchase an upgrade. No code here creates a paid resource or changes billing settings.
 

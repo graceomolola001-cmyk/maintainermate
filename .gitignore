@@ -17,3 +17,7 @@ _site/
 # Local exports from the optional Docker experiment.
 _space/
 _space.zip
+
+# Generated Netlify build and CLI state.
+_netlify/
+.netlify/

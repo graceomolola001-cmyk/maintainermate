@@ -40,3 +40,13 @@ jobs:
           if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
           ./setup.ps1 -Dev
           ./.venv/Scripts/python.exe -m pytest -q
+
+  netlify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/netlify/*.test.mjs
+      - run: node scripts/build_netlify.mjs

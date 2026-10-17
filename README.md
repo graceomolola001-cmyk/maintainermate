@@ -48,15 +48,17 @@ python -m http.server 8080 --bind 127.0.0.1 --directory _site
 
 Open **http://127.0.0.1:8080**. To run real AI, use the FastAPI instructions below instead.
 
-## Host real AI for visitors
+## Host real AI for visitors on Netlify
 
-The lightweight hosted version runs FastAPI on **Render** and uses **Groq's AI API**, so visitors can generate real plans without installing anything or connecting to your laptop. Local use still defaults to Ollama.
+Netlify can host the website **and** its serverless API. Groq generates the AI responses, so neither your laptop nor an Ollama server needs to stay on. Local use still defaults to Python/FastAPI with Ollama.
 
-The deployment configuration explicitly selects Render's **free** plan. The owner needs a Groq free-tier account and a private API key stored in Render's environment settings. Free services have quotas and may sleep; confirm current signup terms and do not enable paid billing.
+You need a Netlify account and a Groq free-tier API key, saved only in Netlify's environment settings. Free hosting has credits and usage limits; confirm the current Free plan at signup and keep paid billing disabled.
 
-[Deploy using Render](https://render.com/deploy?repo=https://github.com/graceomolola001-cmyk/maintainermate) · [Step-by-step hosting guide](docs/hosting.md)
+[Set up Netlify](docs/netlify.md) · [Import the GitHub repository](https://app.netlify.com/start)
 
-A successful deployment and actual generated plan must be checked before calling the public app ready. There is no preconfigured live app URL in this repository.
+The Netlify API uses a small JavaScript adapter and shares the same planning prompt as FastAPI. Both are tested in CI. A successful build is not proof of live AI: verify an actual generated plan after deployment. The repository does not reserve a public app URL.
+
+Render remains an [alternative Python hosting option](docs/hosting.md).
 
 ## Requirements
 
@@ -186,7 +188,10 @@ tests/                Mocked API tests and server smoke test
 .github/              Test CI, Pages deployment, contribution templates
 scripts/build_demo.py  Builds the sample-only portfolio site in _site/
 setup.ps1, start.ps1  Optional Windows helpers
-render.yaml           Free-plan web-service configuration
+render.yaml           Optional Render web-service configuration
+netlify.toml          Netlify website and function build configuration
+netlify/              Server-only Groq adapter for Netlify
+app/prompt.json       Shared prompt for both backends
 ```
 
 In local mode, pasted text is sent to your local Ollama service. In hosted Groq mode it is sent to the server and to Groq; the interface makes this distinction explicit. URL mode additionally sends a request to `api.github.com`; fetching an issue does not inspect its repository code. Model responses are rendered as text rather than HTML.
@@ -197,4 +202,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines. Bu
 
 Licensed under the [MIT License](LICENSE). Ollama and model weights have their own licenses; they are not bundled with this repository.
 
-The default Ollama configuration is intended for localhost; never expose Ollama to the internet. The Groq deployment enables shared usage limits for a small public demo. Read the [hosting guide](docs/hosting.md) before deploying; it has no user accounts or distributed abuse protection. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.
+The default Ollama configuration is intended for localhost; never expose Ollama to the internet. Hosted Groq deployments configure usage limits for a small public demo. Read the [Netlify guide](docs/netlify.md) or [Render guide](docs/hosting.md) before deploying; it has no user accounts or distributed abuse protection. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.
