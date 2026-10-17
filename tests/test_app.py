@@ -119,3 +119,57 @@ def test_github_pr_disallowed(monkeypatch):
     response = client.post("/api/analyze", json={"github_url": "https://github.com/a/b/issues/123"})
     assert response.status_code == 422
     assert "pull request" in response.json()["detail"]
+
+
+@pytest.mark.parametrize('path,content_type', [
+    ('/static/app.js', 'javascript'),
+    ('/static/style.css', 'text/css'),
+    ('/api/docs', 'text/html'),
+])
+def test_frontend_assets_and_docs(path, content_type):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert content_type in response.headers['content-type']
+    assert response.content
+
+
+@pytest.mark.parametrize('url', [
+    'https://github.com:443/a/b/issues/1',
+    'https://github.com:bad/a/b/issues/1',
+    'https://[invalid/a/b/issues/1',
+])
+def test_malformed_issue_urls_return_validation_error(url):
+    response = client.post('/api/analyze', json={'github_url': url})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize('response_body', [[], None, {}, {'message': []},
+                                          {'message': {'content': ''}},
+                                          {'message': {'content': 42}}])
+def test_malformed_model_responses_are_reported(monkeypatch, response_body):
+    monkeypatch.delenv('MOCK_AI', raising=False)
+    fake_transport(monkeypatch, lambda req: httpx.Response(
+        200, content=json.dumps(response_body), headers={'Content-Type': 'application/json'}))
+    response = client.post('/api/analyze', json={
+        'issue_text': 'Windows installation instructions need clearer steps.'})
+    assert response.status_code == 502
+    assert 'invalid response' in response.json()['detail']
+
+
+def test_model_timeout_is_reported(monkeypatch):
+    monkeypatch.delenv('MOCK_AI', raising=False)
+    def timeout(req):
+        raise httpx.ReadTimeout('timeout', request=req)
+    fake_transport(monkeypatch, timeout)
+    response = client.post('/api/analyze', json={
+        'issue_text': 'Windows installation instructions need clearer steps.'})
+    assert response.status_code == 504
+
+
+def test_github_unexpected_labels_do_not_crash(monkeypatch):
+    monkeypatch.setenv('MOCK_AI', 'true')
+    fake_transport(monkeypatch, lambda req: httpx.Response(200, json={
+        'title': 'Improve docs', 'body': 'Add clear setup instructions.', 'labels': 42}))
+    response = client.post('/api/analyze', json={
+        'github_url': 'https://github.com/a/b/issues/1'})
+    assert response.status_code == 200

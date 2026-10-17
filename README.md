@@ -1,87 +1,158 @@
-# MaintainerMate AI (Hacktoberfest MVP)
+# MaintainerMate AI
 
-A **local-first GitHub issue-to-contribution-plan app** built with FastAPI, JavaScript, Ollama, and **your already-installed `qwen3:1.7b`**. Switch to **`gemma3:1b`** from the app's model dropdown after its download completes.
+[![Tests](https://github.com/graceomolola001-cmyk/maintainermate/actions/workflows/tests.yml/badge.svg)](https://github.com/graceomolola001-cmyk/maintainermate/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**What it does:** Paste an issue or a public GitHub issue URL → select a local model → click **Generate contribution plan**. It produces an issue explanation, first checks, suggested implementation steps, a testing checklist, and a draft pull request description. Copy or download the plan as Markdown. Humans still review all changes.
+Turn a GitHub issue into a contribution plan using a local AI model. Built with **Python, FastAPI, JavaScript, and Ollama**, MaintainerMate helps open-source contributors understand an issue and decide what to do next.
 
-## Start on Windows with PowerShell
+**Free to run locally. No paid AI API, API key, or hosted account required.** You supply your computer and an installed Ollama model. GitHub hosts the source; this repository does not include a publicly hosted AI service.
 
-1. Extract the ZIP. Open the extracted `maintainermate_mvp` folder in File Explorer, click its address bar, type `powershell`, and press Enter.
-2. Check Ollama is running and your installed model shows up:
+## What it does
 
-   ```powershell
-   ollama list
-   ```
+- Accepts pasted issue text or a public GitHub issue URL.
+- Generates an issue explanation, first checks, implementation plan, testing checklist, and draft pull request description.
+- Lists your installed Ollama models; defaults to `qwen3:1.7b`.
+- Copies or downloads the result as Markdown.
+- Provides a clearly labelled demo mode that runs without a model.
 
-   You already have `qwen3:1.7b` installed. **Let Gemma's download finish in the separate PowerShell window; don't restart it unless necessary.**
+It does not inspect repository code, modify files, execute tests for you, or submit contributions. Plans can be inaccurate and need human review. Creating a plan does not automatically make an open-source contribution.
 
-3. Install dependencies:
+![MaintainerMate demo interface](docs/demo.png)
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-   ```
+The screenshot shows demo mode with a fixed example response, not live AI output.
 
-   If `python` is unavailable, try `py -3 -m venv .venv`.
+## Requirements
 
-4. Start the application:
+- Python **3.10+** and pip.
+- [Ollama](https://ollama.com/) running locally with a model already installed for real inference. `qwen3:1.7b` is the default; other installed models can be selected.
+- A modern browser. Initial inference can take a few minutes on a CPU.
 
-   ```powershell
-   $env:OLLAMA_MODEL = 'qwen3:1.7b'
-   .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-   ```
+The commands below never download models. If you have none, demo mode still works. No Node.js build is required.
 
-5. Open **http://127.0.0.1:8000**. Click **Use a sample Hacktoberfest issue** → **Generate contribution plan**. The initial model may take a minute to load on 8GB RAM.
+## Windows PowerShell
 
-6. When Gemma finishes downloading, **refresh the web page** and select `gemma3:1b` in the model dropdown. No code changes or restart needed.
-
-You can alternatively run `./setup.ps1` and `./start.ps1` if scripts are permitted, though the commands above also work when PowerShell blocks `.ps1` files.
-
-## Debug quick reference
-
-| Problem | What to do |
-|---|---|
-| Ollama offline | Open Ollama for Windows; only run `ollama serve` in another window if the server isn't already running |
-| Model missing | Run `ollama list` and pick an installed model in the app's dropdown |
-| Python not found | Install Python 3.10+ (check `py --version`), then re-run the venv command |
-| App takes a long time | Close memory-heavy tabs/apps and let Ollama load the model; try Qwen first |
-| `Address already in use` | Stop the other server using port 8000 or start with `--port 8001` |
-| GitHub URL fails | Paste the public issue title and description manually; URL mode needs internet |
-
-### Run automated tests
+Clone the repository into a writable directory of your choice, or download and fully extract its ZIP. Open normal PowerShell **in the project folder** containing `requirements.txt` and `app/`. Do not run from inside the ZIP.
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install pytest
-.\.venv\Scripts\python.exe -m pytest -q
+git clone https://github.com/graceomolola001-cmyk/maintainermate.git
+Set-Location maintainermate
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Tests simulate the model API so no online AI call is needed.
+If `python` is unavailable but the Python launcher is installed, use `py -3 -m venv .venv`. Run commands one at a time and stop if one fails. Virtual environment activation and administrator privileges are unnecessary.
 
-### See API docs and service health
+Check your existing Ollama installation:
 
-- `http://127.0.0.1:8000/api/docs`
-- `http://127.0.0.1:8000/health`
+```powershell
+ollama list
+Invoke-RestMethod http://127.0.0.1:11434/api/tags
+```
 
-### Demo without a running model
+If Ollama is offline, open the Ollama application or run `ollama serve` in another terminal. Start MaintainerMate:
+
+```powershell
+$env:OLLAMA_MODEL = 'qwen3:1.7b'
+$env:MOCK_AI = 'false'
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open **http://127.0.0.1:8000**, click **Use a sample issue**, then **Generate contribution plan**. Keep the terminal open; press Ctrl+C to stop.
+
+Optional helpers: `./setup.ps1` installs runtime dependencies, `./setup.ps1 -Dev` also installs test dependencies, and `./start.ps1` checks Ollama and the selected model before starting. If PowerShell blocks scripts, use the direct commands above; no execution-policy change is needed.
+
+## Linux and macOS
+
+From the cloned repository:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+ollama list
+MOCK_AI=false OLLAMA_MODEL=qwen3:1.7b .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open **http://127.0.0.1:8000**. Ollama must be running on this same machine for real inference.
+
+## Demo without Ollama
+
+Demo mode returns the same fixed Windows-documentation example for every valid input. It is intended for trying the UI, not analyzing real issues.
+
+PowerShell:
 
 ```powershell
 $env:MOCK_AI = 'true'
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-This produces a **fake demonstration response**, not AI output. Stop the server with Ctrl+C, then unset the variable using `Remove-Item Env:MOCK_AI`.
+Or use `./start.ps1 -Demo`. On Linux/macOS:
+
+```bash
+MOCK_AI=true .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Stop the server and set `MOCK_AI=false` before restarting for real inference.
+
+## API and tests
+
+- `GET /health`: Ollama availability and installed models; inspect `status`, not just the HTTP status code. Demo mode reports `mock`.
+- `POST /api/analyze`: supply **either** `issue_text` (20–6000 characters) **or** `github_url`; `model` is optional.
+- Interactive API documentation: **http://127.0.0.1:8000/api/docs**.
+
+With the server running, check it from another PowerShell window:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+$body = @{ issue_text = 'The README needs Windows PowerShell installation instructions for new contributors.'; model = 'qwen3:1.7b' } | ConvertTo-Json
+Invoke-RestMethod http://127.0.0.1:8000/api/analyze -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 240
+```
+
+Run automated tests from the project folder:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Linux/macOS equivalents use `.venv/bin/python`. Tests mock external model and GitHub requests; no model, account, or internet connection is needed after dependencies are installed. CI is configured for Windows and Linux; a passing badge depends on GitHub actually running the workflow.
+
+## Troubleshooting
+
+| Problem | What to check |
+|---|---|
+| Access is denied creating `.venv` | Read the exact failing path. Fully extract the ZIP and use a folder writable by your account. An existing environment may be locked by a running process. Close only processes you recognize; do not blindly delete it, disable security controls, or run as administrator. If relocation is needed, copy to a development directory you choose and create a new environment there. |
+| Python not found | Try `py -3` on Windows; check `python --version`. |
+| Ollama offline | Open Ollama or run `ollama serve`; check `ollama list`. |
+| Model missing | Select an installed model in the dropdown, or set `OLLAMA_MODEL` to its exact name. |
+| Port 8000 already in use | Stop your earlier app server or start with `--port 8001` and open that port. |
+| GitHub URL fails | Only public issue URLs are supported; API access may be blocked or rate-limited. Paste the issue text instead. |
+| Generation times out | Check Ollama, close memory-heavy apps, or select a smaller model you already have. |
+| `No module named app` | Run from the repository root and check that `app/main.py` exists. |
+
+`.env.example` documents variable names; it is not loaded automatically. Use shell variables as shown above. The Ollama endpoint is fixed to `http://127.0.0.1:11434`.
 
 ## Architecture
 
-- `app/main.py`: FastAPI routes (`GET /health`, `POST /api/analyze`) and Ollama chat request.
-- `app/static`: browser interface; model picker, sample issue, copy and Markdown download.
-- `setup.ps1` / `start.ps1`: Windows helper scripts.
-- `tests/test_app.py`: mocked, reproducible backend tests.
+```text
+Browser → FastAPI → Ollama on the same machine
+                  → GitHub API (only for public issue URLs)
+```
 
-The local model runs at `http://127.0.0.1:11434` through Ollama. The web app runs at `http://127.0.0.1:8000`.
+```text
+app/
+  main.py             API, validation, model prompt, Ollama client
+  static/             HTML, CSS, JavaScript; no build step
+tests/                Mocked API tests and server smoke test
+.github/              CI, issue templates, pull request template
+setup.ps1, start.ps1  Optional Windows helpers
+```
 
-**Security:** Run the app on localhost only. Do not expose ports 8000 or 11434 to the internet. GitHub URL parsing restricts requests to public `github.com/.../issues/...` and fetches through `api.github.com`. Do not paste secrets. The assistant cannot modify files, create pull requests, or confirm real test results. Cloud deployment requires further authentication and infrastructure design.
+Pasted text is sent to your local Ollama service. URL mode additionally sends a request to `api.github.com`; fetching an issue does not inspect its repository code. Model responses are rendered as text rather than HTML.
 
-## Next milestone after the hackathon demo
+## Contributing and license
 
-Turn this into a public GitHub repo with `CONTRIBUTING.md`, open beginner issues, and get your first contributor-reviewed PR. Later, add GitHub OAuth, per-repo instructions, and reviewer feedback.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines. Bug reports, accessibility improvements, and documentation contributions are welcome. For sensitive reports, follow [SECURITY.md](SECURITY.md).
+
+Licensed under the [MIT License](LICENSE). Ollama and model weights have their own licenses; they are not bundled with this repository.
+
+This app is designed for localhost. It has no authentication or rate limiting: do not expose the FastAPI or Ollama ports to the internet. GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.
