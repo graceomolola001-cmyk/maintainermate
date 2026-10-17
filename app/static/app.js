@@ -57,6 +57,13 @@ async function checkModels() {
       : await fetch('/health');
     if (!response.ok) throw new Error('Health request failed');
     const data = await response.json();
+    if (data.public_mode) {
+      el('hosted-banner').classList.remove('hidden');
+      if (data.status === 'mock') {
+        el('hosted-banner').querySelector('strong').textContent = 'Sample responses on a shared server';
+      }
+      el('result-loading').querySelector('p').textContent = 'Generating your plan on the shared AI server. This may take a few minutes…';
+    }
     const select = el('model-select');
     select.replaceChildren();
     const choices = data.models.length ? data.models : [data.default_model];
@@ -71,7 +78,9 @@ async function checkModels() {
     } else if (data.status === 'mock') {
       el('runtime-status').textContent = 'Demo mode. No Ollama model will be called.';
     } else if (data.status === 'ollama_offline') {
-      el('runtime-status').textContent = 'Ollama offline. Open Ollama or run ollama serve.';
+      el('runtime-status').textContent = data.public_mode
+        ? 'The shared AI server is starting or unavailable. Please try again shortly.'
+        : 'Ollama offline. Open Ollama or run ollama serve.';
     } else {
       el('runtime-status').textContent = `No models installed. Run ollama pull ${data.default_model}`;
     }

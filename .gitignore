@@ -13,3 +13,6 @@ htmlcov/
 .vscode/
 
 _site/
+
+_space/
+_space.zip

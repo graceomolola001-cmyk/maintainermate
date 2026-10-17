@@ -48,6 +48,12 @@ python -m http.server 8080 --bind 127.0.0.1 --directory _site
 
 Open **http://127.0.0.1:8080**. To run real AI, use the FastAPI instructions below instead.
 
+## Host real AI responses
+
+A separate Docker deployment can run FastAPI and Ollama together, so visitors do not need their own installation. See [the hosting guide](docs/hosting.md) for build, validation, and Hugging Face upload instructions.
+
+Check hosting eligibility before deploying: current Hugging Face documentation requires a paid plan for new compute Spaces, even though CPU Basic has no hourly charge. A free account is not a guarantee of free Docker hosting. The sample-only GitHub Pages demo remains the zero-cost public option.
+
 ## Requirements
 
 - Python **3.10+** and pip.
@@ -183,4 +189,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines. Bu
 
 Licensed under the [MIT License](LICENSE). Ollama and model weights have their own licenses; they are not bundled with this repository.
 
-This app is designed for localhost. It has no authentication or rate limiting: do not expose the FastAPI or Ollama ports to the internet. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.
+The default local configuration is intended for localhost. Use the supplied hosted configuration and read its limits before exposing an app; never expose Ollama directly. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.

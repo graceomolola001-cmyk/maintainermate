@@ -1,6 +1,6 @@
 # Security
 
-MaintainerMate is intended for local development on a trusted machine. Keep FastAPI and Ollama bound to loopback. Public deployment requires additional design for authentication, request limits, and resource isolation.
+The default configuration is intended for local use on a trusted machine. Keep it bound to loopback. The optional Docker deployment provides request-size limits, one-at-a-time inference, a shared cooldown, and a private Ollama endpoint for a small public demonstration. It does not provide user accounts, distributed rate limiting, or denial-of-service protection. Read [the hosting guide](docs/hosting.md) before deploying; production or sensitive use requires additional design.
 
 Do not paste credentials, private repository content, or sensitive documents into the app or issue tracker. AI output is untrusted advice and must be reviewed before use.
 
