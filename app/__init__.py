@@ -1,0 +1,1 @@
+"""MaintainerMate AI package."""

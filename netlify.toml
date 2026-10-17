@@ -1,0 +1,13 @@
+[build]
+  command = "node scripts/build_netlify.mjs"
+  publish = "_netlify"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Add GROQ_API_KEY privately in the Netlify dashboard, never in this file.
+# GROQ_MODEL is optional; its default is openai/gpt-oss-20b.

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#533E80" />
+  <title>MaintainerMate AI | Open-source issue assistant</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="background-orb orb-one"></div><div class="background-orb orb-two"></div>
+  <div class="shell">
+    <header class="masthead">
+      <div class="brand"><span class="brand-icon">{ m }</span><span>MaintainerMate<span class="brand-suffix"> AI</span></span></div>
+      <span class="hack-tag">OPEN SOURCE · CONTRIBUTION PLANNING</span>
+    </header>
+    <main>
+      <aside id="demo-banner" class="demo-banner hidden" aria-label="About this demo">
+        <strong>Interactive portfolio demo</strong>
+        <p>Try a fixed sample contribution plan. No AI model runs here, and nothing is submitted to GitHub.</p>
+        <a href="https://github.com/graceomolola001-cmyk/maintainermate#in-your-browser">Get the free app for real local AI responses</a>
+      </aside>
+      <aside id="hosted-banner" class="demo-banner hidden" aria-label="Shared AI server">
+        <strong>Live AI on a shared server</strong>
+        <p>Your issue text is sent to this server for processing. Avoid private information. One plan runs at a time; please allow others a turn. The app does not save your issue text.</p>
+      </aside>
+      <section class="hero">
+        <div class="eyebrow"><span class="pulse"></span> YOUR OPEN-SOURCE CONTRIBUTION COMPANION</div>
+        <h1>Make your first contribution<br /><em>with confidence.</em></h1>
+        <p>Get a practical plan for a GitHub issue with AI guidance. Understand the task, choose your first steps, and prepare a pull request for human review.</p>
+      </section>
+      <div class="workspace">
+        <section class="panel entry-panel" aria-labelledby="entry-title">
+          <div class="panel-heading"><span class="step-number">01</span><div><h2 id="entry-title">Share a GitHub issue</h2><p>Start with text or a public GitHub link</p></div></div>
+          <div class="tab-buttons" role="group" aria-label="Issue input method">
+            <button id="paste-tab" class="tab selected" type="button" aria-pressed="true">✎ Paste issue</button>
+            <button id="url-tab" class="tab" type="button" aria-pressed="false">↗ GitHub URL</button>
+          </div>
+          <form id="analyze-form">
+            <div id="text-field" class="field">
+              <label for="issue-text">Issue description</label>
+              <textarea id="issue-text" rows="8" maxlength="6000" placeholder="Paste the issue title and description here..."></textarea>
+              <div class="field-bottom"><span class="hint">Avoid passwords, tokens and private data.</span><span id="char-count" class="hint">0 / 6000</span></div>
+            </div>
+            <div id="url-field" class="field hidden">
+              <label for="issue-url">Public GitHub issue URL</label>
+              <input id="issue-url" type="url" placeholder="https://github.com/owner/repo/issues/123" />
+              <span class="hint">Public GitHub issues only. Internet connection required.</span>
+            </div>
+            <button id="sample-button" class="secondary-button" type="button">Use a sample issue</button>
+            <div class="field model-field">
+              <label id="model-label" for="model-select">Local AI model</label>
+              <select id="model-select" aria-describedby="runtime-status"><option value="qwen3:1.7b">qwen3:1.7b (checking...)</option></select>
+              <p id="runtime-status" class="hint" role="status">Checking your Ollama models…</p>
+            </div>
+            <button id="run-button" class="primary-button" type="submit"><span id="run-label">Generate contribution plan</span><span aria-hidden="true">→</span></button>
+          </form>
+          <div class="footnote"><span>✳</span> Maintainers still review and approve all changes. This tool does not edit code or create pull requests.</div>
+        </section>
+        <section class="panel result-panel" aria-labelledby="result-title">
+          <div class="panel-heading"><span class="step-number alt">02</span><div><h2 id="result-title">Your contribution roadmap</h2><p>AI guidance, reviewed by humans</p></div></div>
+          <div id="result-empty" class="result-empty">
+            <div class="empty-icon">⌘</div><h3>Ready to make a difference?</h3>
+            <p>Paste a GitHub issue and get an explanation, implementation steps, a test checklist, and a pull request draft.</p>
+            <div class="mini-chip">BUILT FOR OPEN SOURCE</div>
+          </div>
+          <div id="result-loading" class="hidden loading-state" role="status"><div class="loader"></div><p>Generating your contribution plan…<br /><small>The first response may take a few minutes.</small></p></div>
+          <div id="result-ready" class="hidden" aria-live="polite"><div class="result-topline"><span class="success-chip">✓ PLAN GENERATED</span><div class="actions"><button id="copy-button" class="copy-button" type="button">Copy</button><button id="download-button" class="copy-button" type="button">Save .md</button></div></div><pre id="result-text"></pre><div class="result-meta" id="result-meta"></div></div>
+          <div id="result-error" class="hidden error-message" role="alert"></div>
+        </section>
+      </div>
+      <footer><span>MaintainerMate AI · Open-source contribution planning</span><span id="inference-note">Local inference through Ollama</span></footer>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

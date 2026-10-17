@@ -1,0 +1,23 @@
+# Deploy only with free-tier accounts. No Ollama process or model download is needed.
+services:
+  - type: web
+    name: maintainermate
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: python -m pip install -r requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 32 --no-access-log
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: AI_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PUBLIC_MODE
+        value: "true"
+      - key: MOCK_AI
+        value: "false"

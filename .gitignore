@@ -3,4 +3,21 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .env
+.env.*
+!.env.example
 .DS_Store
+.coverage
+htmlcov/
+*.log
+.idea/
+.vscode/
+
+_site/
+
+# Local exports from the optional Docker experiment.
+_space/
+_space.zip
+
+# Generated Netlify build and CLI state.
+_netlify/
+.netlify/
