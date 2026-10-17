@@ -50,7 +50,9 @@ Open **http://127.0.0.1:8080**. To run real AI, use the FastAPI instructions bel
 
 ## Host real AI for visitors on Netlify
 
-Netlify can host the website **and** its serverless API. Groq generates the AI responses, so neither your laptop nor an Ollama server needs to stay on. Local use still defaults to Python/FastAPI with Ollama.
+Netlify can host the website **and** its serverless API. Groq generates the AI responses using the hosted default `openai/gpt-oss-20b`, so neither your laptop nor an Ollama server needs to stay on. Local use still defaults to Python/FastAPI with Ollama.
+
+Visitors can choose supported models listed by your Groq account, including OpenAI gpt-oss, Meta Llama, and Qwen when available. All use Groq's API and your existing Groq key; a separate OpenAI API key is unnecessary.
 
 You need a Netlify account and a Groq free-tier API key, saved only in Netlify's environment settings. Free hosting has credits and usage limits; confirm the current Free plan at signup and keep paid billing disabled.
 

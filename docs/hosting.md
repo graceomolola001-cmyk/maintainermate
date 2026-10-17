@@ -8,7 +8,7 @@ The repository explicitly selects Render's **free** web-service plan. Use a Groq
 
 ## Deploy
 
-1. Create/sign in to https://console.groq.com. Under **API Keys**, create a server API key. Keep it private; do not paste it in chat, source files, screenshots, or the browser interface. Check that `llama-3.1-8b-instant` is supported by your account; otherwise choose an available model in the same free tier and set `GROQ_MODEL` to its exact ID.
+1. Create/sign in to https://console.groq.com. Under **API Keys**, create a server API key. Keep it private; do not paste it in chat, source files, screenshots, or the browser interface. Check that `openai/gpt-oss-20b` is supported by your account; otherwise choose an available model in the same free tier and set `GROQ_MODEL` to its exact ID.
 2. Create/sign in to https://dashboard.render.com and connect the GitHub repository `graceomolola001-cmyk/maintainermate`.
 3. Open https://render.com/deploy?repo=https://github.com/graceomolola001-cmyk/maintainermate . This reads `render.yaml` from `main`. Confirm the service plan says **Free**.
 4. Enter the key in Render's secure **GROQ_API_KEY** environment-variable field when prompted. Leave `AI_PROVIDER=groq`, `PUBLIC_MODE=true`, and `MOCK_AI=false`. The key stays on the server and is not included in frontend assets.
@@ -59,7 +59,7 @@ Create the normal project virtual environment first. Set `GROQ_API_KEY` through 
 
 ```powershell
 $env:AI_PROVIDER = 'groq'
-$env:GROQ_MODEL = 'llama-3.1-8b-instant'
+$env:GROQ_MODEL = 'openai/gpt-oss-20b'
 $env:MOCK_AI = 'false'
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```

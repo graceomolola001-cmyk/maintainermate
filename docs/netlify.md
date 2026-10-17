@@ -7,9 +7,11 @@ This version uses **Netlify for the website and its API functions**, plus **Groq
 1. Sign in at https://app.netlify.com/start and choose **Import an existing project → GitHub**. Select `graceomolola001-cmyk/maintainermate`, using branch `main`.
 2. Let Netlify read `netlify.toml`. It specifies the build command, publish directory, and functions directory. Use the **Free** plan and review its current credit/function limits. Stop if your account requires a paid upgrade; do not enable paid add-ons or automatic credit purchases to follow this guide.
 3. Under the project's **Environment variables**, add `GROQ_API_KEY` with a key from https://console.groq.com/keys . Use the Functions/runtime scope if the dashboard offers scope selection. Never put the value in GitHub, `netlify.toml`, frontend code, screenshots, or chat.
-4. Normally leave `GROQ_MODEL` unset. If you change it, use an active model offered by your Groq free-tier account and mark the variable as **non-secret**: a public model ID is not a credential. The default is `llama-3.1-8b-instant`; check its current availability in your console. Keep paid Groq billing disabled.
+4. Set `GROQ_MODEL` to `openai/gpt-oss-20b`, the hosted default, and mark the variable as **non-secret**: a public model ID is not a credential. This model was listed by the deployed provider check; verify access and free-tier limits in your Groq console. Keep paid Groq billing disabled. If the variable is omitted, the server uses the same default.
 5. Deploy. If you added the environment variable after deploying, trigger another deployment so the functions receive it.
 6. Open the actual HTTPS URL Netlify assigns. Paste an issue or select the sample, then generate a plan. Test again in a private browser window before adding the link to your portfolio.
+
+The hosted model picker uses `/api/models` to list supported, active models from your Groq account: OpenAI's `openai/gpt-oss-20b`, Meta's `llama-3.3-70b-versatile`, and Qwen's `qwen/qwen3-32b`, when listed. The server's configured model can also appear if active. All run through Groq using the same server-side key; no separate OpenAI account or key is needed. A listed model can still be blocked from generation by account permissions or quota. If only one supported model is listed, the picker shows that model and stays disabled.
 
 Use GitHub import so Netlify builds the functions. Uploading only the static files through drag-and-drop does not prepare this backend.
 
@@ -39,7 +41,7 @@ This diagnostic route is limited to four requests per minute per domain. Normal 
 
 The analysis function declares Netlify's native rate-limit rule: **two requests per 60-second sliding window per site domain**. This is platform configuration, not an in-memory Python limit. Netlify's bundler recognizes and includes the rule; verify deployment acceptance and actual enforcement in your account. Platform rate-limit responses can be plain text, which the interface handles with a friendly message.
 
-The server accepts at most 32 KiB of JSON and 6000 characters of pasted issue text. Visitors cannot switch to an unconfigured model. Provider requests have a 25-second deadline, ask for at most 750 output tokens, and are not automatically retried. Hosting-plan function limits may apply sooner.
+The server accepts at most 32 KiB of JSON and 6000 characters of pasted issue text. Visitors can select only models from the server's supported list or its configured default. Provider requests have a 25-second deadline, ask for at most 750 output tokens, and are not automatically retried. Hosting-plan function limits may apply sooner. Model-list requests are limited to 30 per minute per domain and do not generate text.
 
 The Python backend's daily counter and concurrency gate do not apply to separate Netlify function instances. Netlify account credits, its platform rules, and Groq's own free-tier quotas are the limits for this deployment. Free plans are not unlimited or an always-on guarantee. Confirm current terms at https://www.netlify.com/pricing/ and https://console.groq.com/docs/rate-limits . This code does not enable billing, buy credits, or guarantee that a particular account is eligible for free hosting.
 
@@ -71,6 +73,6 @@ Build output is `_netlify/`; API handlers are in `netlify/functions/`. FastAPI t
 | AI key missing | Add `GROQ_API_KEY` privately in Netlify environment settings and redeploy. |
 | Credentials/model need attention | Check the key and available free-tier model in Groq. Replace the key securely or update `GROQ_MODEL`, then redeploy. |
 | HTTP 429 | Wait for the shared site/provider quota window. Do not purchase an upgrade automatically. |
-| `/health` returns 404 | Confirm the repository was imported with `netlify.toml` and that Netlify built all three functions. |
+| `/health` returns 404 | Confirm the repository was imported with `netlify.toml` and that Netlify built all five functions. |
 | Build rejects rate-limit configuration | Share the redacted error. Check whether your plan supports it before proceeding; do not enable a paid upgrade. |
 | Function timeout | Check the provider status and your account's function-duration limits; do not describe a timed-out request as successful AI output. |

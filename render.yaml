@@ -14,7 +14,7 @@ services:
       - key: AI_PROVIDER
         value: groq
       - key: GROQ_MODEL
-        value: llama-3.1-8b-instant
+        value: openai/gpt-oss-20b
       - key: GROQ_API_KEY
         sync: false
       - key: PUBLIC_MODE

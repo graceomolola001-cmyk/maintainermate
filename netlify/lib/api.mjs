@@ -1,7 +1,8 @@
 // Server-only API for Netlify. The browser never receives the Groq credential.
 import prompt from '../../app/prompt.json' with { type: 'json' };
 
-const DEFAULT_MODEL = 'llama-3.1-8b-instant';
+const DEFAULT_MODEL = 'openai/gpt-oss-20b';
+const SUPPORTED_MODELS = ['openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'qwen/qwen3-32b'];
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models';
 const MAX_BYTES = 32 * 1024;
@@ -164,14 +165,14 @@ async function inspectProvider(model, key, fetchImpl) {
   if (!Array.isArray(body?.data)) throw new Problem(502, 'Groq returned an invalid model list.');
   const ids = new Set(body.data.filter(item => item && item.active !== false).map(item => item.id));
   const available = ids.has(model);
-  const candidates = ['llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'qwen/qwen3-32b']
-    .filter(id => id !== model && ids.has(id));
-  return json({provider: 'groq', provider_status: response.status, model,
+  const candidates = SUPPORTED_MODELS.filter(id => id !== model && ids.has(id));
+  return {provider: 'groq', provider_status: response.status, model,
     status: available ? 'model_listed' : 'model_not_listed',
     model_available: available, alternative_models_listed: candidates,
+    models: [...new Set([model, ...SUPPORTED_MODELS])].filter(id => ids.has(id)),
     detail: available
       ? 'Groq accepts this key for the model list, and the configured model is listed. Generation permissions and quota still require a successful plan request.'
-      : 'The configured model is not in the active Groq model list. Check an available model in the Groq console before updating GROQ_MODEL as a non-secret setting.'});
+      : 'The configured model is not in the active Groq model list. Check an available model in the Groq console before updating GROQ_MODEL as a non-secret setting.'};
 }
 
 export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}) {
@@ -189,18 +190,23 @@ export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}
           models: [model], ollama: 'not_required', public_mode: true, provider: 'groq'});
       }
       if (!key) throw new Problem(503, 'AI is not configured yet. The app owner needs to add the server API key.');
-      if (endpoint === 'provider-status') return await inspectProvider(model, key, fetchImpl);
+      if (endpoint === 'provider-status') return json(await inspectProvider(model, key, fetchImpl));
+      if (endpoint === 'models') {
+        const catalog = await inspectProvider(model, key, fetchImpl);
+        return json({provider: 'groq', default_model: model, models: catalog.models});
+      }
       if (endpoint === 'ready') return json({status: 'configured', provider: 'groq'});
       const input = await readInput(request);
-      if (input.model && input.model !== model) {
-        throw new Problem(422, 'This shared server only supports its configured model.');
+      const selectedModel = input.model || model;
+      if (![model, ...SUPPORTED_MODELS].includes(selectedModel)) {
+        throw new Problem(422, 'Choose one of the supported models hosted through Groq.');
       }
       const signal = AbortSignal.timeout(25000);
       const issue = input.issueParts ? await fetchIssue(input.issueParts, fetchImpl, signal) : input.issue_text;
       const response = await fetchImpl(GROQ_URL, {
         method: 'POST', redirect: 'manual', signal,
         headers: {'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json'},
-        body: JSON.stringify({model, messages: [
+        body: JSON.stringify({model: selectedModel, messages: [
           {role: 'system', content: prompt.system_prompt},
           {role: 'user', content: `Analyze the following issue:\n<issue>\n${issue}\n</issue>`},
         ], temperature: 0.3, max_completion_tokens: 750, stream: false}),
@@ -214,7 +220,7 @@ export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}
       if (typeof analysis !== 'string' || !analysis.trim()) {
         throw new Problem(502, 'The AI service returned an invalid response.');
       }
-      return json({analysis: analysis.trim().slice(0, 12000), model, provider: 'groq',
+      return json({analysis: analysis.trim().slice(0, 12000), model: selectedModel, provider: 'groq',
         issue_source: input.issueParts ? 'Public GitHub issue' : 'Pasted issue text'});
     } catch (error) {
       if (error instanceof Problem) return json({detail: error.message, ...error.diagnostics}, error.status, error.headers);

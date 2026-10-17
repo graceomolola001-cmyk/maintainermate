@@ -51,6 +51,8 @@ el('sample-button').addEventListener('click', () => {
 });
 
 async function checkModels() {
+  el('run-button').disabled = true;
+  let canGenerate = true;
   try {
     const response = STATIC_DEMO
       ? {ok: true, json: async () => ({status: 'mock', models: [], default_model: 'Sample response (no AI)'})}
@@ -67,22 +69,42 @@ async function checkModels() {
     if (data.provider === 'groq') {
       el('hosted-banner').querySelector('strong').textContent = 'AI powered by Groq';
       el('hosted-banner').querySelector('p').textContent = 'Your issue text is sent to this server and Groq for processing. Use public information only. Usage limits apply. The app does not save your issue text.';
-      el('model-label').textContent = 'Hosted AI model';
+      el('model-label').textContent = 'AI model · hosted by Groq';
       el('model-select').disabled = true;
       el('inference-note').textContent = 'Hosted inference through Groq · Usage limits apply';
       el('result-loading').querySelector('p').textContent = 'Generating your contribution plan…';
     }
+    let modelListFailed = false;
+    if (data.provider === 'groq' && data.status === 'api_configured') {
+      try {
+        const catalogResponse = await fetch('/api/models');
+        if (!catalogResponse.ok) throw new Error('Model list unavailable');
+        const catalog = await catalogResponse.json();
+        if (!Array.isArray(catalog.models) || !catalog.models.every(model => typeof model === 'string')) {
+          throw new Error('Invalid model list');
+        }
+        data.models = catalog.models;
+        canGenerate = data.models.length > 0;
+      } catch {
+        modelListFailed = true;
+      }
+    }
     const select = el('model-select');
     select.replaceChildren();
-    const choices = data.models.length ? data.models : [data.default_model];
+    const choices = data.provider === 'groq' ? data.models : (data.models.length ? data.models : [data.default_model]);
     for (const model of choices) {
       const option = document.createElement('option');
       option.value = model; option.textContent = model;
       select.appendChild(option);
     }
     if (choices.includes(data.default_model)) select.value = data.default_model;
+    if (data.provider === 'groq') select.disabled = choices.length < 2;
     if (data.status === 'api_configured') {
-      el('runtime-status').textContent = 'Groq API configured. Generate a plan to try it. Free-tier usage limits apply.';
+      el('runtime-status').textContent = !canGenerate
+        ? 'No supported models are listed for this Groq account. Please contact the app owner.'
+        : modelListFailed
+          ? 'Could not refresh model choices. Using the configured Groq model. Usage limits apply.'
+          : `${choices.length} supported model${choices.length === 1 ? '' : 's'} listed by Groq. Includes OpenAI gpt-oss when available. Free-tier usage limits apply.`;
     } else if (data.status === 'api_key_missing') {
       el('runtime-status').textContent = 'Hosted AI is not configured yet. The site owner needs to add the server API key.';
     } else if (data.status === 'ready') {
@@ -97,7 +119,10 @@ async function checkModels() {
       el('runtime-status').textContent = `No models installed. Run ollama pull ${data.default_model}`;
     }
   } catch {
+    canGenerate = false;
     el('runtime-status').textContent = 'Cannot check the AI service. Check that the app is running.';
+  } finally {
+    el('run-button').disabled = !canGenerate;
   }
 }
 

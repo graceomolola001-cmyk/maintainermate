@@ -4,7 +4,7 @@ import {createApi} from '../../netlify/lib/api.mjs';
 import sharedPrompt from '../../app/prompt.json' with {type: 'json'};
 
 const KEY = 'synthetic-server-key';
-const MODEL = 'llama-3.1-8b-instant';
+const MODEL = 'openai/gpt-oss-20b';
 const ISSUE = 'Add Windows PowerShell setup instructions for new contributors.';
 const env = {GROQ_API_KEY: KEY};
 const request = (data = {issue_text: ISSUE}, options = {}) => new Request('https://example.test/api/analyze', {
@@ -50,6 +50,35 @@ test('health and readiness check configuration without any model calls', async (
 });
 
 
+test('Netlify uses its Groq model override even when local Ollama settings are present', async () => {
+  const selected = 'qwen/qwen3-32b';
+  const calls = [];
+  const api = createApi({env: {...env, GROQ_MODEL: selected, AI_PROVIDER: 'ollama', OLLAMA_MODEL: 'qwen3:1.7b'},
+    fetchImpl: async (url, options) => {
+      calls.push(url);
+      if (url === 'https://api.groq.com/openai/v1/models') {
+        return response({data: [{id: selected, active: true}]});
+      }
+      assert.equal(url, 'https://api.groq.com/openai/v1/chat/completions');
+      assert.equal(JSON.parse(options.body).model, selected);
+      return response(plan);
+    }});
+  const health = await (await api(new Request('https://example.test/health'), 'health')).json();
+  assert.equal(health.provider, 'groq');
+  assert.equal(health.default_model, selected);
+  const status = await (await api(new Request('https://example.test/api/provider-status'), 'provider-status')).json();
+  assert.equal(status.status, 'model_listed');
+  assert.equal(status.model, selected);
+  const result = await api(request({issue_text: ISSUE, model: selected}), 'analyze');
+  assert.equal(result.status, 200);
+  const data = await result.json();
+  assert.equal(data.provider, 'groq');
+  assert.equal(data.model, selected);
+  assert.equal(data.analysis, plan.choices[0].message.content);
+  assert.equal(calls.length, 2);
+});
+
+
 test('missing key is explicit and never replaced by fake output', async () => {
   const api = createApi({env: {}, fetchImpl: () => assert.fail('Unexpected call')});
   assert.equal((await (await api(new Request('https://example.test/health'), 'health')).json()).status, 'api_key_missing');
@@ -57,7 +86,47 @@ test('missing key is explicit and never replaced by fake output', async () => {
   const result = await api(request(), 'analyze');
   assert.equal(result.status, 503);
   assert.ok(!(await result.text()).includes('DEMO ONLY'));
+  assert.equal((await api(new Request('https://example.test/api/models'), 'models')).status, 503);
 });
+
+
+test('model choices include only supported active models from Groq', async () => {
+  const api = createApi({env, fetchImpl: async url => {
+    assert.equal(url, 'https://api.groq.com/openai/v1/models');
+    return response({data: [{id: MODEL, active: true}, {id: 'qwen/qwen3-32b', active: true},
+      {id: 'llama-3.3-70b-versatile', active: false}, {id: 'unknown-model', active: true},
+      {id: KEY, active: true}]});
+  }});
+  const result = await api(new Request('https://example.test/api/models'), 'models');
+  assert.equal(result.status, 200);
+  const data = await result.json();
+  assert.deepEqual(data.models, [MODEL, 'qwen/qwen3-32b']);
+  assert.equal(data.default_model, MODEL);
+  assert.equal(data.provider, 'groq');
+  assert.ok(!JSON.stringify(data).includes(KEY));
+});
+
+
+test('model list excludes an unavailable configured default without inventing a replacement', async () => {
+  const api = createApi({env, fetchImpl: async () => response({data: [{id: 'qwen/qwen3-32b'}]})});
+  const data = await (await api(new Request('https://example.test/api/models'), 'models')).json();
+  assert.deepEqual(data.models, ['qwen/qwen3-32b']);
+  assert.equal(data.default_model, MODEL);
+});
+
+
+for (const model of ['openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'qwen/qwen3-32b']) {
+  test(`visitors can select supported Groq-hosted model ${model}`, async () => {
+    const api = createApi({env, fetchImpl: async (url, options) => {
+      assert.equal(url, 'https://api.groq.com/openai/v1/chat/completions');
+      assert.equal(JSON.parse(options.body).model, model);
+      return response(plan);
+    }});
+    const result = await api(request({issue_text: ISSUE, model}), 'analyze');
+    assert.equal(result.status, 200);
+    assert.equal((await result.json()).model, model);
+  });
+}
 
 for (const data of [{}, {issue_text: 'fix'}, {issue_text: ISSUE, github_url: 'https://github.com/a/b/issues/1'},
                     {issue_text: ISSUE, model: 'another-model'}, {issue_text: 42}, {issue_text: null},

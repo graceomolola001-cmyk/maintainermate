@@ -6,7 +6,7 @@ import os
 import httpx
 from fastapi import HTTPException
 
-DEFAULT_GROQ_MODEL = 'llama-3.1-8b-instant'
+DEFAULT_GROQ_MODEL = 'openai/gpt-oss-20b'
 GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 
