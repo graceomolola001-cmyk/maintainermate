@@ -3,9 +3,9 @@
 [![Tests](https://github.com/graceomolola001-cmyk/maintainermate/actions/workflows/tests.yml/badge.svg)](https://github.com/graceomolola001-cmyk/maintainermate/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Turn a GitHub issue into a contribution plan using a local AI model. Built with **Python, FastAPI, JavaScript, and Ollama**, MaintainerMate helps open-source contributors understand an issue and decide what to do next.
+Turn a GitHub issue into a contribution plan using local Ollama models or a hosted AI API. Built with **Python, FastAPI, JavaScript, and Ollama**, MaintainerMate helps open-source contributors understand an issue and decide what to do next.
 
-**Free to run locally. No paid AI API, API key, or hosted account required.** You supply your computer and an installed Ollama model. GitHub hosts the source. A free GitHub Pages demo can show sample responses; real AI runs locally through Ollama.
+**Local mode needs no paid AI API, API key, or hosted account.** You supply your computer and an installed Ollama model. GitHub hosts the source. A free GitHub Pages demo can show sample responses; real AI runs locally through Ollama.
 
 ## What it does
 
@@ -48,6 +48,16 @@ python -m http.server 8080 --bind 127.0.0.1 --directory _site
 
 Open **http://127.0.0.1:8080**. To run real AI, use the FastAPI instructions below instead.
 
+## Host real AI for visitors
+
+The lightweight hosted version runs FastAPI on **Render** and uses **Groq's AI API**, so visitors can generate real plans without installing anything or connecting to your laptop. Local use still defaults to Ollama.
+
+The deployment configuration explicitly selects Render's **free** plan. The owner needs a Groq free-tier account and a private API key stored in Render's environment settings. Free services have quotas and may sleep; confirm current signup terms and do not enable paid billing.
+
+[Deploy using Render](https://render.com/deploy?repo=https://github.com/graceomolola001-cmyk/maintainermate) · [Step-by-step hosting guide](docs/hosting.md)
+
+A successful deployment and actual generated plan must be checked before calling the public app ready. There is no preconfigured live app URL in this repository.
+
 ## Requirements
 
 - Python **3.10+** and pip.
@@ -79,6 +89,7 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 If Ollama is offline, open the Ollama application or run `ollama serve` in another terminal. Start MaintainerMate:
 
 ```powershell
+$env:AI_PROVIDER = 'ollama'
 $env:OLLAMA_MODEL = 'qwen3:1.7b'
 $env:MOCK_AI = 'false'
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -96,7 +107,7 @@ From the cloned repository:
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ollama list
-MOCK_AI=false OLLAMA_MODEL=qwen3:1.7b .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+AI_PROVIDER=ollama MOCK_AI=false OLLAMA_MODEL=qwen3:1.7b .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Open **http://127.0.0.1:8000**. Ollama must be running on this same machine for real inference.
@@ -156,26 +167,29 @@ Linux/macOS equivalents use `.venv/bin/python`. Tests mock external model and Gi
 | Generation times out | Check Ollama, close memory-heavy apps, or select a smaller model you already have. |
 | `No module named app` | Run from the repository root and check that `app/main.py` exists. |
 
-`.env.example` documents variable names; it is not loaded automatically. Use shell variables as shown above. The Ollama endpoint is fixed to `http://127.0.0.1:11434`.
+`.env.example` documents variable names; it is not loaded automatically. Use shell variables as shown above. For local mode, `AI_PROVIDER=ollama` and the Ollama endpoint is fixed to `http://127.0.0.1:11434`. Hosted mode uses `AI_PROVIDER=groq`, `GROQ_MODEL`, and a server-only `GROQ_API_KEY`.
 
 ## Architecture
 
 ```text
-Browser → FastAPI → Ollama on the same machine
+Browser → FastAPI → Ollama (local mode) or Groq API (hosted mode)
                   → GitHub API (only for public issue URLs)
 ```
 
 ```text
 app/
   main.py             API, validation, model prompt, Ollama client
+  cloud_ai.py         Server-side Groq client and private error handling
+  hosting.py          Shared request-size, concurrency, and usage limits
   static/             HTML, CSS, JavaScript; no build step
 tests/                Mocked API tests and server smoke test
 .github/              Test CI, Pages deployment, contribution templates
 scripts/build_demo.py  Builds the sample-only portfolio site in _site/
 setup.ps1, start.ps1  Optional Windows helpers
+render.yaml           Free-plan web-service configuration
 ```
 
-Pasted text is sent to your local Ollama service. URL mode additionally sends a request to `api.github.com`; fetching an issue does not inspect its repository code. Model responses are rendered as text rather than HTML.
+In local mode, pasted text is sent to your local Ollama service. In hosted Groq mode it is sent to the server and to Groq; the interface makes this distinction explicit. URL mode additionally sends a request to `api.github.com`; fetching an issue does not inspect its repository code. Model responses are rendered as text rather than HTML.
 
 ## Contributing and license
 
@@ -183,4 +197,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines. Bu
 
 Licensed under the [MIT License](LICENSE). Ollama and model weights have their own licenses; they are not bundled with this repository.
 
-This app is designed for localhost. It has no authentication or rate limiting: do not expose the FastAPI or Ollama ports to the internet. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.
+The default Ollama configuration is intended for localhost; never expose Ollama to the internet. The Groq deployment enables shared usage limits for a small public demo. Read the [hosting guide](docs/hosting.md) before deploying; it has no user accounts or distributed abuse protection. The Pages demo serves fixed sample content; GitHub Pages cannot run the Python backend or Ollama. You can showcase this repository and a demo recording in your portfolio without paying for hosting.

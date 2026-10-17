@@ -1,8 +1,8 @@
 # Security
 
-MaintainerMate is intended for local development on a trusted machine. Keep FastAPI and Ollama bound to loopback. Public deployment requires additional design for authentication, request limits, and resource isolation.
+The default Ollama configuration is for local use; keep its services bound to loopback. The optional Render/Groq deployment has request-size limits, a shared cooldown, a daily request budget, and one-at-a-time inference. It is a small public demo without user accounts or distributed abuse protection. See [the hosting guide](docs/hosting.md).
 
-Do not paste credentials, private repository content, or sensitive documents into the app or issue tracker. AI output is untrusted advice and must be reviewed before use.
+Do not paste credentials, private repository content, or sensitive documents into the app or issue tracker. Hosted mode sends issue text to Groq; keep the provider key only in server-side environment settings, never in frontend files or logs. AI output is untrusted advice and must be reviewed before use.
 
 ## Reporting a vulnerability
 

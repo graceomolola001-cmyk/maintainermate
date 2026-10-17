@@ -1,6 +1,7 @@
-"""MaintainerMate: local-first open-source issue planner backed by Ollama.
+"""MaintainerMate: issue planning with local Ollama or server-side Groq.
 
-Run locally only: uvicorn app.main:app --host 127.0.0.1 --port 8000
+Local: uvicorn app.main:app --host 127.0.0.1 --port 8000
+For the hosted Groq version, see docs/hosting.md.
 """
 from __future__ import annotations
 
@@ -16,6 +17,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app.cloud_ai import ai_provider, groq_configured, groq_model, query_groq
+from app.hosting import InferenceGate, PublicRequestLimit, public_mode
+
 APP_DIR = Path(__file__).resolve().parent
 DEMO_PLAN = json.loads((APP_DIR / "demo-plan.json").read_text(encoding="utf-8"))
 DEFAULT_MODEL = "qwen3:1.7b"
@@ -24,6 +28,8 @@ ISSUE_URL_RE = re.compile(r"^/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/issues/([0-9]+
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,100}$")
 
 app = FastAPI(title="MaintainerMate AI", version="0.3.0", docs_url="/api/docs")
+app.add_middleware(PublicRequestLimit)
+inference_gate = InferenceGate()
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 
 
@@ -37,9 +43,12 @@ class AnalyzeResponse(BaseModel):
     analysis: str
     model: str
     issue_source: str
+    provider: str = "ollama"
 
 
 def default_model() -> str:
+    if ai_provider() == "groq":
+        return groq_model()
     return os.environ.get("OLLAMA_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
@@ -119,7 +128,9 @@ Include the reminder 'Ask the maintainer before making large changes.'
 def select_model(value: str) -> str:
     name = value.strip() or default_model()
     if not MODEL_RE.fullmatch(name):
-        raise HTTPException(422, "Invalid Ollama model name.")
+        raise HTTPException(422, "Invalid AI model name.")
+    if (ai_provider() == "groq" or public_mode()) and name != default_model():
+        raise HTTPException(422, "This shared server only supports its configured model.")
     return name
 
 
@@ -147,6 +158,8 @@ async def query_ollama(issue: str, model: str) -> str:
         "options": {"temperature": 0.3, "num_ctx": 3072, "num_predict": 750},
         "keep_alive": "2m",
     }
+    if public_mode():
+        body["options"]["num_thread"] = 2
     if model.lower().startswith("qwen3:"):
         body["think"] = False
     try:
@@ -164,7 +177,9 @@ async def query_ollama(issue: str, model: str) -> str:
     except httpx.ConnectError as exc:
         raise HTTPException(503, "Ollama is offline. Open Ollama or run ollama serve.") from exc
     except httpx.TimeoutException as exc:
-        raise HTTPException(504, "Model response timed out. Close heavy apps or choose a smaller model.") from exc
+        detail = ("The shared AI server timed out. Please try again later." if public_mode()
+                  else "Model response timed out. Close heavy apps or choose a smaller model.")
+        raise HTTPException(504, detail) from exc
     except (httpx.RequestError, ValueError, KeyError, TypeError, IndexError) as exc:
         raise HTTPException(502, "Ollama returned an invalid response. Try again or switch models.") from exc
 
@@ -177,15 +192,31 @@ async def homepage():
 @app.get("/health")
 async def health():
     """Return status and model choices for the model selector, without running inference."""
-    selected = default_model()
+    provider = ai_provider()
+    selected = select_model("")
     if os.environ.get("MOCK_AI", "").lower() == "true":
-        return {"status": "mock", "default_model": selected, "models": [], "ollama": "not_required"}
+        return {"status": "mock", "default_model": selected, "models": [], "ollama": "not_required", "public_mode": public_mode(), "provider": "demo"}
+    if provider == "groq":
+        return {"status": "api_configured" if groq_configured() else "api_key_missing",
+                "default_model": selected, "models": [selected], "ollama": "not_required",
+                "public_mode": True, "provider": "groq"}
     try:
         models = await installed_models()
+        if public_mode():
+            models = [name for name in models if name == selected]
         return {"status": "ready" if models else "model_missing",
-                "default_model": selected, "models": models, "ollama": "online"}
+                "default_model": selected, "models": models, "ollama": "online", "public_mode": public_mode(), "provider": "ollama"}
     except HTTPException:
-        return {"status": "ollama_offline", "default_model": selected, "models": [], "ollama": "offline"}
+        return {"status": "ollama_offline", "default_model": selected, "models": [], "ollama": "offline", "public_mode": public_mode(), "provider": "ollama"}
+
+
+@app.get("/ready", include_in_schema=False)
+async def readiness():
+    provider = ai_provider()
+    select_model("")
+    if provider == "groq" and not groq_configured():
+        raise HTTPException(503, "The server API key has not been configured.")
+    return {"status": "configured", "provider": provider}
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
@@ -197,14 +228,31 @@ async def analyze(payload: AnalyzeRequest):
         raise HTTPException(422, "Choose either a GitHub URL or issue text.")
     if pasted and len(pasted) < 20:
         raise HTTPException(422, "Write at least 20 characters describing the issue.")
+    if issue_url:
+        try:
+            parse_github_issue_url(issue_url)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+    provider = ai_provider()
     model = select_model(payload.model)
-    issue = await fetch_public_issue(issue_url) if issue_url else pasted
-    source = "Public GitHub issue" if issue_url else "Pasted issue text"
+    mocked = os.environ.get("MOCK_AI", "").lower() == "true"
+    if provider == "groq" and not mocked and not groq_configured():
+        raise HTTPException(503, "AI is not configured yet. The app owner needs to add the server API key.")
+    shared = public_mode()
+    if shared:
+        inference_gate.acquire()
+    try:
+        issue = await fetch_public_issue(issue_url) if issue_url else pasted
+        source = "Public GitHub issue" if issue_url else "Pasted issue text"
 
-    if os.environ.get("MOCK_AI", "").lower() == "true":
-        return AnalyzeResponse(
-            model=DEMO_PLAN["model"], issue_source=source, analysis=DEMO_PLAN["analysis"],
-        )
+        if os.environ.get("MOCK_AI", "").lower() == "true":
+            return AnalyzeResponse(
+                model=DEMO_PLAN["model"], issue_source=source, analysis=DEMO_PLAN["analysis"], provider="demo",
+            )
 
-    output = await query_ollama(issue, model)
-    return AnalyzeResponse(analysis=output, model=model, issue_source=source)
+        output = (await query_groq(issue, model, PROMPT) if provider == "groq"
+                  else await query_ollama(issue, model))
+        return AnalyzeResponse(analysis=output, model=model, issue_source=source, provider=provider)
+    finally:
+        if shared:
+            inference_gate.release()

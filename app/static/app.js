@@ -57,6 +57,21 @@ async function checkModels() {
       : await fetch('/health');
     if (!response.ok) throw new Error('Health request failed');
     const data = await response.json();
+    if (data.public_mode) {
+      el('hosted-banner').classList.remove('hidden');
+      if (data.status === 'mock') {
+        el('hosted-banner').querySelector('strong').textContent = 'Sample responses on a shared server';
+      }
+      el('result-loading').querySelector('p').textContent = 'Generating your plan on the shared AI server. This may take a few minutes…';
+    }
+    if (data.provider === 'groq') {
+      el('hosted-banner').querySelector('strong').textContent = 'AI powered by Groq';
+      el('hosted-banner').querySelector('p').textContent = 'Your issue text is sent to this server and Groq for processing. Use public information only. Usage limits apply. The app does not save your issue text.';
+      el('model-label').textContent = 'Hosted AI model';
+      el('model-select').disabled = true;
+      el('inference-note').textContent = 'Hosted inference through Groq · Usage limits apply';
+      el('result-loading').querySelector('p').textContent = 'Generating your contribution plan…';
+    }
     const select = el('model-select');
     select.replaceChildren();
     const choices = data.models.length ? data.models : [data.default_model];
@@ -66,17 +81,23 @@ async function checkModels() {
       select.appendChild(option);
     }
     if (choices.includes(data.default_model)) select.value = data.default_model;
-    if (data.status === 'ready') {
+    if (data.status === 'api_configured') {
+      el('runtime-status').textContent = 'Groq API configured. Generate a plan to try it. Free-tier usage limits apply.';
+    } else if (data.status === 'api_key_missing') {
+      el('runtime-status').textContent = 'Hosted AI is not configured yet. The site owner needs to add the server API key.';
+    } else if (data.status === 'ready') {
       el('runtime-status').textContent = `✓ Ollama connected · ${choices.length} model${choices.length === 1 ? '' : 's'} available`;
     } else if (data.status === 'mock') {
       el('runtime-status').textContent = 'Demo mode. No Ollama model will be called.';
     } else if (data.status === 'ollama_offline') {
-      el('runtime-status').textContent = 'Ollama offline. Open Ollama or run ollama serve.';
+      el('runtime-status').textContent = data.public_mode
+        ? 'The shared AI server is starting or unavailable. Please try again shortly.'
+        : 'Ollama offline. Open Ollama or run ollama serve.';
     } else {
       el('runtime-status').textContent = `No models installed. Run ollama pull ${data.default_model}`;
     }
   } catch {
-    el('runtime-status').textContent = 'Cannot check Ollama connection. Check that the app is running.';
+    el('runtime-status').textContent = 'Cannot check the AI service. Check that the app is running.';
   }
 }
 
@@ -106,7 +127,7 @@ el('analyze-form').addEventListener('submit', async event => {
     }
     // Model output remains literal text. Never interpolate it into HTML.
     el('result-text').textContent = data.analysis;
-    el('result-meta').textContent = `${data.model} · ${data.issue_source} · Always request human review`;
+    el('result-meta').textContent = `${data.provider === 'groq' ? 'Groq · ' : ''}${data.model} · ${data.issue_source} · Always request human review`;
     showState('ready');
   } catch (err) {
     el('result-error').textContent = err.message || 'An unexpected error occurred.';

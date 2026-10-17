@@ -13,3 +13,7 @@ htmlcov/
 .vscode/
 
 _site/
+
+# Local exports from the optional Docker experiment.
+_space/
+_space.zip
