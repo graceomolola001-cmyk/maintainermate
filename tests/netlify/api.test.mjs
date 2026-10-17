@@ -158,3 +158,67 @@ test('wrong method is rejected', async () => {
   assert.equal(result.status, 405);
   assert.equal(result.headers.get('Allow'), 'POST');
 });
+
+
+test('provider status checks the model list without generating or returning credentials', async () => {
+  const api = createApi({env, fetchImpl: async (url, options) => {
+    assert.equal(url, 'https://api.groq.com/openai/v1/models');
+    assert.equal(options.headers.Authorization, `Bearer ${KEY}`);
+    assert.equal(options.method, undefined);
+    return response({data: [{id: MODEL, active: true}, {id: 'llama-3.3-70b-versatile', active: true}]});
+  }});
+  const result = await api(new Request('https://example.test/api/provider-status'), 'provider-status');
+  assert.equal(result.status, 200);
+  const data = await result.json();
+  assert.equal(data.status, 'model_listed');
+  assert.equal(data.model_available, true);
+  assert.equal(data.provider_status, 200);
+  assert.ok(!JSON.stringify(data).includes(KEY));
+});
+
+
+test('provider status reports missing model and only listed alternatives', async () => {
+  const api = createApi({env, fetchImpl: async () => response({data: [
+    {id: MODEL, active: false}, {id: 'llama-3.3-70b-versatile', active: true},
+    {id: KEY, active: true},
+  ]})});
+  const result = await api(new Request('https://example.test/api/provider-status'), 'provider-status');
+  const data = await result.json();
+  assert.equal(data.status, 'model_not_listed');
+  assert.equal(data.model_available, false);
+  assert.deepEqual(data.alternative_models_listed, ['llama-3.3-70b-versatile']);
+  assert.ok(!JSON.stringify(data).includes(KEY));
+});
+
+
+test('provider status rejects malformed model list', async () => {
+  const api = createApi({env, fetchImpl: async () => response({data: null})});
+  assert.equal((await api(new Request('https://example.test/api/provider-status'), 'provider-status')).status, 502);
+});
+
+for (const code of ['model_decommissioned', 'model_not_found', 'model_permission_blocked',
+                    'organization_restricted', 'invalid_request_error']) {
+  test(`provider error ${code} is distinguished without exposing its message`, async () => {
+    const api = createApi({env, fetchImpl: async () => response({
+      error: {code, type: 'invalid_request_error', message: KEY, param: 'model'},
+    }, 400)});
+    const result = await api(request(), 'analyze');
+    const data = await result.json();
+    assert.equal(result.status, 503);
+    assert.equal(data.provider_error, code);
+    assert.equal(data.provider_status, 400);
+    assert.equal(data.provider_parameter, 'model');
+    assert.ok(!JSON.stringify(data).includes(KEY));
+  });
+}
+
+
+test('unknown provider codes and parameters are not echoed', async () => {
+  const api = createApi({env, fetchImpl: async () => response({error: {
+    code: KEY, param: KEY, type: KEY, message: KEY,
+  }}, 400)});
+  const data = await (await api(request(), 'analyze')).json();
+  assert.equal(data.provider_error, 'unclassified');
+  assert.equal(data.provider_parameter, undefined);
+  assert.ok(!JSON.stringify(data).includes(KEY));
+});

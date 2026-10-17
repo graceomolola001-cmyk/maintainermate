@@ -3,13 +3,15 @@ import prompt from '../../app/prompt.json' with { type: 'json' };
 
 const DEFAULT_MODEL = 'llama-3.1-8b-instant';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models';
 const MAX_BYTES = 32 * 1024;
 
 class Problem extends Error {
-  constructor(status, message, headers = {}) {
+  constructor(status, message, headers = {}, diagnostics = {}) {
     super(message);
     this.status = status;
     this.headers = headers;
+    this.diagnostics = diagnostics;
   }
 }
 
@@ -113,6 +115,65 @@ function retryAfter(value) {
   return /^\d{1,6}$/.test(value ?? '') ? String(Math.min(Math.max(Number(value), 1), 3600)) : '60';
 }
 
+// Only known codes and controlled messages may leave the server. Provider error
+// messages can contain private data and must never be echoed or logged wholesale.
+const PROVIDER_ERRORS = {
+  model_decommissioned: 'The configured AI model has been retired. The app owner needs to select an active Groq model.',
+  model_not_found: 'The configured AI model is unavailable to this account. The app owner needs to check the Groq model setting.',
+  model_permission_blocked: 'This model is blocked by the Groq project permissions. The app owner needs to enable access in Groq.',
+  organization_restricted: 'The Groq account is restricted. The app owner needs to check the account settings in Groq.',
+  invalid_api_key: 'The Groq API key was rejected. The app owner needs to update the server credential.',
+  insufficient_quota: 'The Groq account has reached a usage limit. Please try again later.',
+  rate_limit_exceeded: 'The AI service usage limit has been reached. Please try again later.',
+  invalid_request_error: 'Groq rejected the AI request. The app owner needs to check the request settings.',
+};
+
+async function providerFailure(response) {
+  let body;
+  try { body = await response.json(); } catch { body = null; }
+  const rawCode = body?.error?.code;
+  const rawType = body?.error?.type;
+  const code = typeof rawCode === 'string' && Object.hasOwn(PROVIDER_ERRORS, rawCode) ? rawCode
+    : typeof rawType === 'string' && Object.hasOwn(PROVIDER_ERRORS, rawType) ? rawType : 'unclassified';
+  const defaults = response.status === 429
+    ? 'The AI service usage limit has been reached. Please try again later.'
+    : [401, 403].includes(response.status)
+      ? 'The AI service credentials or account permissions need attention from the app owner.'
+      : response.status === 402 ? 'The Groq account cannot serve this request. The app owner needs to check account access.'
+        : response.status === 400 ? 'Groq rejected the AI request. The app owner needs to check the request settings.'
+          : response.status === 404 ? 'The configured AI model is unavailable. The app owner needs to check the model setting.'
+            : 'The AI service is temporarily unavailable. Please try again later.';
+  const status = response.status === 429 ? 429 : [400, 401, 402, 403, 404].includes(response.status) ? 503 : 502;
+  const headers = response.status === 429 ? {'Retry-After': retryAfter(response.headers.get('Retry-After'))} : {};
+  const diagnostics = {provider: 'groq', provider_status: response.status, provider_error: code};
+  // Parameter names are also restricted to a fixed allowlist, never arbitrary text.
+  if (['model', 'max_completion_tokens', 'temperature', 'messages', 'stream'].includes(body?.error?.param)) {
+    diagnostics.provider_parameter = body.error.param;
+  }
+  console.warn('Groq request rejected:', JSON.stringify(diagnostics));
+  return new Problem(status, PROVIDER_ERRORS[code] || defaults, headers, diagnostics);
+}
+
+async function inspectProvider(model, key, fetchImpl) {
+  const response = await fetchImpl(GROQ_MODELS_URL, {
+    headers: {'Authorization': `Bearer ${key}`}, redirect: 'manual', signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw await providerFailure(response);
+  let body;
+  try { body = await response.json(); } catch { body = null; }
+  if (!Array.isArray(body?.data)) throw new Problem(502, 'Groq returned an invalid model list.');
+  const ids = new Set(body.data.filter(item => item && item.active !== false).map(item => item.id));
+  const available = ids.has(model);
+  const candidates = ['llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'qwen/qwen3-32b']
+    .filter(id => id !== model && ids.has(id));
+  return json({provider: 'groq', provider_status: response.status, model,
+    status: available ? 'model_listed' : 'model_not_listed',
+    model_available: available, alternative_models_listed: candidates,
+    detail: available
+      ? 'Groq accepts this key for the model list, and the configured model is listed. Generation permissions and quota still require a successful plan request.'
+      : 'The configured model is not in the active Groq model list. Check an available model in the Groq console before updating GROQ_MODEL as a non-secret setting.'});
+}
+
 export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}) {
   return async function handle(request, endpoint) {
     try {
@@ -128,6 +189,7 @@ export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}
           models: [model], ollama: 'not_required', public_mode: true, provider: 'groq'});
       }
       if (!key) throw new Problem(503, 'AI is not configured yet. The app owner needs to add the server API key.');
+      if (endpoint === 'provider-status') return await inspectProvider(model, key, fetchImpl);
       if (endpoint === 'ready') return json({status: 'configured', provider: 'groq'});
       const input = await readInput(request);
       if (input.model && input.model !== model) {
@@ -143,17 +205,7 @@ export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}
           {role: 'user', content: `Analyze the following issue:\n<issue>\n${issue}\n</issue>`},
         ], temperature: 0.3, max_completion_tokens: 750, stream: false}),
       });
-      if (response.status === 429) {
-        throw new Problem(429, 'The AI service usage limit has been reached. Please try again later.',
-          {'Retry-After': retryAfter(response.headers.get('Retry-After'))});
-      }
-      if ([401, 403].includes(response.status)) {
-        throw new Problem(503, 'The AI service credentials need attention from the app owner.');
-      }
-      if ([400, 402, 404].includes(response.status)) {
-        throw new Problem(503, 'The AI model or account is unavailable. Please contact the app owner.');
-      }
-      if (!response.ok) throw new Problem(502, 'The AI service is temporarily unavailable. Please try again later.');
+      if (!response.ok) throw await providerFailure(response);
       let result;
       try { result = await response.json(); } catch {
         throw new Problem(502, 'The AI service returned an invalid response.');
@@ -165,7 +217,7 @@ export function createApi({env = process.env, fetchImpl = globalThis.fetch} = {}
       return json({analysis: analysis.trim().slice(0, 12000), model, provider: 'groq',
         issue_source: input.issueParts ? 'Public GitHub issue' : 'Pasted issue text'});
     } catch (error) {
-      if (error instanceof Problem) return json({detail: error.message}, error.status, error.headers);
+      if (error instanceof Problem) return json({detail: error.message, ...error.diagnostics}, error.status, error.headers);
       if (['AbortError', 'TimeoutError'].includes(error?.name)) {
         return json({detail: 'The AI request timed out. Please try again later.'}, 504);
       }

@@ -7,7 +7,7 @@ This version uses **Netlify for the website and its API functions**, plus **Groq
 1. Sign in at https://app.netlify.com/start and choose **Import an existing project → GitHub**. Select `graceomolola001-cmyk/maintainermate`, using branch `main`.
 2. Let Netlify read `netlify.toml`. It specifies the build command, publish directory, and functions directory. Use the **Free** plan and review its current credit/function limits. Stop if your account requires a paid upgrade; do not enable paid add-ons or automatic credit purchases to follow this guide.
 3. Under the project's **Environment variables**, add `GROQ_API_KEY` with a key from https://console.groq.com/keys . Use the Functions/runtime scope if the dashboard offers scope selection. Never put the value in GitHub, `netlify.toml`, frontend code, screenshots, or chat.
-4. Optionally set `GROQ_MODEL` to a model offered by your Groq free-tier account. The default is `llama-3.1-8b-instant`; check its current availability in your console. Keep paid Groq billing disabled.
+4. Normally leave `GROQ_MODEL` unset. If you change it, use an active model offered by your Groq free-tier account and mark the variable as **non-secret**: a public model ID is not a credential. The default is `llama-3.1-8b-instant`; check its current availability in your console. Keep paid Groq billing disabled.
 5. Deploy. If you added the environment variable after deploying, trigger another deployment so the functions receive it.
 6. Open the actual HTTPS URL Netlify assigns. Paste an issue or select the sample, then generate a plan. Test again in a private browser window before adding the link to your portfolio.
 
@@ -22,6 +22,18 @@ Use GitHub import so Netlify builds the functions. Uploading only the static fil
 - Copy and download the result. Wait at least a minute between repeated public tests because the analysis function has a shared rate limit.
 
 The repository does not reserve a Netlify URL or demonstrate a live deployment. Local tests simulate provider responses; real AI must be validated after the key is configured on your account.
+
+## Diagnose a model or account error
+
+Open your site's `/api/provider-status` address. This makes a read-only Groq model-list request, not a generation request. It returns no API key, provider error message, or account identifier.
+
+- `model_listed` means Groq accepted the key for the model list and the configured model is active. A generated plan is still needed to verify inference permissions and quota.
+- `model_not_listed` means the model needs attention. `alternative_models_listed` contains known alternatives actually returned by Groq. Check free-tier eligibility and project permissions in your Groq console before choosing one; there is no automatic model switch.
+- `provider_status` and the allowlisted `provider_error` distinguish rejected credentials, retired models, model permission blocks, account restrictions, and invalid request settings.
+
+Failed provider requests log only these controlled diagnostic fields in the Netlify function logs. They never log the API key, prompt, Authorization header, or raw provider body. You can share the diagnostic JSON or those log lines for troubleshooting.
+
+This diagnostic route is limited to four requests per minute per domain. Normal `/health` remains a configuration-only check. If Netlify flags `GROQ_MODEL` as an exposed secret, remove the optional variable or mark its public model ID as non-secret. Keep `GROQ_API_KEY` secret and keep scanning enabled.
 
 ## Limits and cost
 
