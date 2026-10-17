@@ -1,0 +1,6 @@
+# MaintainerMate AI: local Hacktoberfest MVP
+Version: 0.3.0
+Default Ollama model: qwen3:1.7b
+Optional model: gemma3:1b (select from app dropdown after installation)
+Start: Follow README.md for Windows PowerShell setup.
+Deployment: local-only, no DigitalOcean required.
